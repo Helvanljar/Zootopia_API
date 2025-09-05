@@ -1,30 +1,27 @@
-import json
 import os
+import requests
+
+API_URL = "https://api.api-ninjas.com/v1/animals"
+API_KEY = os.getenv("API_NINJAS_KEY")  # <-- Set your API key in environment
 
 
-def load_data(file_path):
-    """Load JSON file containing animal data with error handling."""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    try:
-        with open(file_path, "r") as f:
-            return json.load(f)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Error decoding JSON: {e}")
+def fetch_animals(query: str):
+    """Fetch animal data from API-Ninjas by name."""
+    headers = {"X-Api-Key": API_KEY}
+    params = {"name": query}
+    response = requests.get(API_URL, headers=headers, params=params)
+    response.raise_for_status()
+    return response.json()  # returns list of animal objects
 
 
-def serialize_animal(animal_obj):
-    """Serialize a single animal object into HTML using nested <ul>."""
+def serialize_animal(animal_obj: dict) -> str:
+    """Convert a single animal object into an HTML card."""
     output = '<li class="cards__item">\n'
-
-    # Name
     name = animal_obj.get("name", "Unknown")
     output += f"  <div class='card__title'>{name}</div>\n"
-
     output += "  <div class='card__text'>\n    <ul class='card__fields'>\n"
 
-    # Characteristics (safe lookup)
+    # Characteristics
     characteristics = animal_obj.get("characteristics", {})
 
     # Diet
@@ -41,22 +38,21 @@ def serialize_animal(animal_obj):
     if "type" in characteristics:
         output += f"      <li><strong>Type:</strong> {characteristics['type']}</li>\n"
 
-    # Skin Type (with fallback)
+    # Skin Type
     output += f"      <li><strong>Skin Type:</strong> {characteristics.get('skin_type', 'Unknown')}</li>\n"
 
     output += "    </ul>\n  </div>\n</li>\n"
     return output
 
 
-def generate_animals_html(data):
-    """Generate HTML for all animals by serializing each one."""
-    # Sort alphabetically by name with safe fallback
+def generate_animals_html(data: list) -> str:
+    """Generate HTML for all animals."""
     sorted_data = sorted(data, key=lambda x: x.get("name") or "")
     return "".join(serialize_animal(animal) for animal in sorted_data)
 
 
-def create_html_page(animals_html):
-    """Return the full HTML page as a string."""
+def create_html_page(animals_html: str, query: str) -> str:
+    """Return full HTML page string with styling."""
     return f"""
 <html>
 <head>
@@ -112,7 +108,7 @@ def create_html_page(animals_html):
 <body>
   <h1>My Animal Repository</h1>
   <ul class="cards">
-    {animals_html}
+    {animals_html if animals_html else f"<h2>The animal '{query}' doesn't exist.</h2>"}
   </ul>
 </body>
 </html>
@@ -120,17 +116,26 @@ def create_html_page(animals_html):
 
 
 def main():
-    try:
-        data = load_data("animals_data.json")
-        animals_html = generate_animals_html(data)
-        full_html = create_html_page(animals_html)
+    if not API_KEY:
+        print("❌ Error: API_NINJAS_KEY environment variable not set.")
+        return
 
-        with open("animals.html", "w") as f:
+    query = input("Enter a name of an animal: ").strip()
+    try:
+        animals = fetch_animals(query)
+        animals_html = generate_animals_html(animals) if animals else ""
+        full_html = create_html_page(animals_html, query)
+
+        with open("animals.html", "w", encoding="utf-8") as f:
             f.write(full_html)
 
-        print(f"✅ HTML file generated with {len(data)} animals.")
-    except (FileNotFoundError, ValueError, OSError) as e:
-        print(f"❌ Error: {e}")
+        if animals:
+            print(f"✅ Website generated with {len(animals)} animal(s).")
+        else:
+            print(f"ℹ️ No results found. Error page created in animals.html.")
+
+    except Exception as e:
+        print(f"❌ Error fetching data: {e}")
 
 
 if __name__ == "__main__":
