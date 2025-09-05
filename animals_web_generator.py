@@ -1,17 +1,4 @@
-import os
-import requests
-
-API_URL = "https://api.api-ninjas.com/v1/animals"
-API_KEY = os.getenv("API_NINJAS_KEY")  # <-- Set your API key in environment
-
-
-def fetch_animals(query: str):
-    """Fetch animal data from API-Ninjas by name."""
-    headers = {"X-Api-Key": API_KEY}
-    params = {"name": query}
-    response = requests.get(API_URL, headers=headers, params=params)
-    response.raise_for_status()
-    return response.json()  # returns list of animal objects
+import data_fetcher
 
 
 def serialize_animal(animal_obj: dict) -> str:
@@ -21,26 +8,21 @@ def serialize_animal(animal_obj: dict) -> str:
     output += f"  <div class='card__title'>{name}</div>\n"
     output += "  <div class='card__text'>\n    <ul class='card__fields'>\n"
 
-    # Characteristics
     characteristics = animal_obj.get("characteristics", {})
 
-    # Diet
     if "diet" in characteristics:
         output += f"      <li><strong>Diet:</strong> {characteristics['diet']}</li>\n"
 
-    # Locations
     locations = animal_obj.get("locations", [])
     if locations:
         locations_str = ", ".join(locations)
         output += f"      <li><strong>Location:</strong> {locations_str}</li>\n"
 
-    # Type
     if "type" in characteristics:
         output += f"      <li><strong>Type:</strong> {characteristics['type']}</li>\n"
 
-    # Skin Type
-    output += f"      <li><strong>Skin Type:</strong> {characteristics.get('skin_type', 'Unknown')}</li>\n"
-
+    output += f"      <li><strong>Skin Type:</strong> " \
+              f"{characteristics.get('skin_type', 'Unknown')}</li>\n"
     output += "    </ul>\n  </div>\n</li>\n"
     return output
 
@@ -116,21 +98,19 @@ def create_html_page(animals_html: str, query: str) -> str:
 
 
 def main():
-    if not API_KEY:
-        print("❌ Error: API_NINJAS_KEY environment variable not set.")
-        return
+    """Main program flow."""
+    animal_name = input("Please enter an animal: ").strip()
 
-    query = input("Enter a name of an animal: ").strip()
     try:
-        animals = fetch_animals(query)
-        animals_html = generate_animals_html(animals) if animals else ""
-        full_html = create_html_page(animals_html, query)
+        data = data_fetcher.fetch_data(animal_name)
+        animals_html = generate_animals_html(data) if data else ""
+        full_html = create_html_page(animals_html, animal_name)
 
         with open("animals.html", "w", encoding="utf-8") as f:
             f.write(full_html)
 
-        if animals:
-            print(f"✅ Website generated with {len(animals)} animal(s).")
+        if data:
+            print(f"✅ Website generated with {len(data)} animal(s).")
         else:
             print(f"ℹ️ No results found. Error page created in animals.html.")
 
