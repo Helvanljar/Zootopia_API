@@ -1,8 +1,14 @@
 import os
 import requests
+from dotenv import load_dotenv
 
+# Load .env from the same folder as this file
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path)
+
+API_KEY = os.getenv("API_NINJAS_KEY")
 API_URL = "https://api.api-ninjas.com/v1/animals"
-API_KEY = os.getenv("API_NINJAS_KEY")  # Set your API key in environment
+
 
 
 def fetch_data(animal_name: str) -> list[dict]:
@@ -25,5 +31,5 @@ def fetch_data(animal_name: str) -> list[dict]:
     params = {"name": animal_name}
     response = requests.get(API_URL, headers=headers, params=params)
     response.raise_for_status()
-
     return response.json()
+print(API_KEY)
