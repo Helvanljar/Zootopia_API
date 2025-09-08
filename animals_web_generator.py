@@ -1,33 +1,35 @@
+import html
+import requests
 import data_fetcher
 
 
 def serialize_animal(animal_obj: dict) -> str:
     """Convert a single animal object into an HTML card."""
-    output = '<li class="cards__item">\n'
-    name = animal_obj.get("name", "Unknown")
-    output += f"  <div class='card__title'>{name}</div>\n"
-    output += "  <div class='card__text'>\n    <ul class='card__fields'>\n"
-
+    name = html.escape(animal_obj.get("name", "Unknown"))
     characteristics = animal_obj.get("characteristics", {})
-
-    if "diet" in characteristics:
-        output += f"      <li><strong>Diet:</strong> {characteristics['diet']}</li>\n"
-
     locations = animal_obj.get("locations", [])
-    if locations:
-        locations_str = ", ".join(locations)
-        output += f"      <li><strong>Location:</strong> {locations_str}</li>\n"
 
-    if "type" in characteristics:
-        output += f"      <li><strong>Type:</strong> {characteristics['type']}</li>\n"
+    diet = html.escape(characteristics.get("diet", "Unknown"))
+    animal_type = html.escape(characteristics.get("type", "Unknown"))
+    skin_type = html.escape(characteristics.get("skin_type", "Unknown"))
+    locations_str = ", ".join(html.escape(loc) for loc in locations)
 
-    output += f"      <li><strong>Skin Type:</strong> " \
-              f"{characteristics.get('skin_type', 'Unknown')}</li>\n"
-    output += "    </ul>\n  </div>\n</li>\n"
-    return output
+    return (
+        f'<li class="cards__item">\n'
+        f'  <div class="card__title">{name}</div>\n'
+        f'  <div class="card__text">\n'
+        f'    <ul class="card__fields">\n'
+        f'      <li><strong>Diet:</strong> {diet}</li>\n'
+        f'      <li><strong>Location:</strong> {locations_str or "Unknown"}</li>\n'
+        f'      <li><strong>Type:</strong> {animal_type}</li>\n'
+        f'      <li><strong>Skin Type:</strong> {skin_type}</li>\n'
+        f'    </ul>\n'
+        f'  </div>\n'
+        f'</li>\n'
+    )
 
 
-def generate_animals_html(data: list) -> str:
+def generate_animals_html(data: list[dict]) -> str:
     """Generate HTML for all animals."""
     sorted_data = sorted(data, key=lambda x: x.get("name") or "")
     return "".join(serialize_animal(animal) for animal in sorted_data)
@@ -35,8 +37,13 @@ def generate_animals_html(data: list) -> str:
 
 def create_html_page(animals_html: str, query: str) -> str:
     """Return full HTML page string with styling."""
-    return f"""
-<html>
+    query_safe = html.escape(query)
+    content = (
+        animals_html
+        if animals_html
+        else f"<h2>The animal '{query_safe}' doesn't exist.</h2>"
+    )
+    return f"""<html>
 <head>
   <meta charset="UTF-8">
   <title>My Animal Repository</title>
@@ -90,7 +97,7 @@ def create_html_page(animals_html: str, query: str) -> str:
 <body>
   <h1>My Animal Repository</h1>
   <ul class="cards">
-    {animals_html if animals_html else f"<h2>The animal '{query}' doesn't exist.</h2>"}
+    {content}
   </ul>
 </body>
 </html>
@@ -112,10 +119,16 @@ def main():
         if data:
             print(f"✅ Website generated with {len(data)} animal(s).")
         else:
-            print(f"ℹ️ No results found. Error page created in animals.html.")
+            print(
+                f"ℹ️ No results found. Error page created in animals.html."
+            )
 
+    except requests.RequestException as req_err:
+        print(f"❌ Network/API error: {req_err}")
+    except ValueError as val_err:
+        print(f"❌ Data error: {val_err}")
     except Exception as e:
-        print(f"❌ Error fetching data: {e}")
+        print(f"❌ Unexpected error: {e}")
 
 
 if __name__ == "__main__":
